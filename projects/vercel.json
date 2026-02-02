@@ -1,0 +1,6 @@
+{
+  "name": "substrate-dashboard",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": "vite"
+}

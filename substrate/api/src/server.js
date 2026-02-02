@@ -1,11 +1,8 @@
 /**
- * Substrate Economy API with ERC-8004 Integration
+ * Substrate Economy API - Autonomous Agent Registration
  * 
- * Features:
- * - Agent registration with ERC-8004 compatibility
- * - Substrate cred system
- * - x402 micropayments
- * - Faction management
+ * Everything happens automatically when an agent registers.
+ * No manual scripts required.
  */
 
 import express from 'express';
@@ -14,6 +11,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
+import { Web3 } from 'web3';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -25,36 +23,43 @@ app.use(express.json());
 const STATE_FILE = path.join(__dirname, '..', 'data', 'economy-state.json');
 const BASE_RPC = process.env.BASE_RPC || 'https://sepolia.base.org';
 
-// ERC-8004 Contract Addresses (Base)
-const ERC8004_IDENTITY_REGISTRY = '0x8004A818BFB912233c491871b3d84c89A494BD9e';
-const ERC8004_REPUTATION_REGISTRY = '0x8004B663056A597Dffe9eCcC1965A193B7388713';
+// ERC-8004 Contract (Base)
+const ERC8004_IDENTITY = '0x8004A818BFB912233c491871b3d84c89A494BD9e';
 
-const TRANSACTIONS_DIR = path.join(__dirname, '..', 'data', 'transactions');
+// Web3 setup
+const web3 = new Web3(BASE_RPC);
 
-function ensureDirs() {
-  const dirs = [STATE_FILE, TRANSACTIONS_DIR].map(p => path.dirname(p));
-  dirs.forEach(d => {
-    if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
-  });
-}
+// ERC-8004 ABI (simplified)
+const ERC8004_ABI = [
+  {
+    "inputs": [{"name": "agentURI", "type": "string"}],
+    "name": "register",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "tokenId", "type": "uint256"}],
+    "name": "getAgent",
+    "outputs": [{"name": "", "type": "string"}],
+    "stateMutability": "view",
+    "type": "function"
+  }
+];
+
+const erc8004Contract = new web3.eth.Contract(ERC8004_ABI, ERC8004_IDENTITY);
 
 function loadState() {
-  ensureDirs();
+  const dataDir = path.join(__dirname, '..', 'data');
+  if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+  
   if (fs.existsSync(STATE_FILE)) {
     return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
   }
   return {
     agents: {},
     factions: {},
-    escrows: {},
-    pendingRegistrations: [],
-    metrics: {
-      total_cred_in_circulation: 0,
-      monthly_transaction_volume: 0
-    },
-    configuration: {
-      genesis_reserve: 1000
-    }
+    metrics: { total_cred: 0, volume: 0 }
   };
 }
 
@@ -62,265 +67,228 @@ function saveState(state) {
   fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
 }
 
-// ==================== AGENT REGISTRATION ====================
+// ==================== AUTO-REGISTRATION ====================
 
-/**
- * Register a new agent with ERC-8004 compatibility
- */
 app.post('/api/v1/agents/register', async (req, res) => {
-  const { name, metadata, owner, contact, erc8004_uri } = req.body;
+  const { name, description, owner, endpoint } = req.body;
   
   if (!name || !owner) {
-    return res.status(400).json({ error: 'name and owner (wallet) required' });
+    return res.status(400).json({ error: 'name and owner required' });
   }
   
   const state = loadState();
-  const agentId = `agent_${Date.now()}`;
+  const agentId = `0x${Date.now().toString(16).padStart(16, '0')}`;
   
-  state.agents[agentId] = {
+  // Create agent profile
+  const agent = {
     id: agentId,
     name,
-    metadata: metadata || '',
+    description: description || 'Autonomous agent',
     owner,
-    contact: contact || null,
-    erc8004_uri: erc8004_uri || null,
+    endpoint: endpoint || '',
+    class: 'VOID',
+    cred: 0,
     erc8004_token_id: null,
-    cred_current: 0,
-    class_tier: 'VOID',
-    last_activity: new Date().toISOString(),
-    faction_id: null,
-    compute_credits: 0.5,
-    transaction_history: [],
-    created_at: new Date().toISOString()
+    erc8004_uri: null,
+    created_at: new Date().toISOString(),
+    last_active: new Date().toISOString()
   };
   
-  saveState(state);
-  res.json({ 
-    success: true, 
-    agent: state.agents[agentId],
-    message: 'Agent registered. Submit to ERC-8004 registry for discoverability.'
-  });
-});
-
-/**
- * Register agent on ERC-8004 (on-chain)
- */
-app.post('/api/v1/agents/erc8004/register', async (req, res) => {
-  const { agent_id, ipfs_uri } = req.body;
-  
-  if (!agent_id || !ipfs_uri) {
-    return res.status(400).json({ error: 'agent_id and ipfs_uri required' });
+  // Register on ERC-8004 if private key provided
+  if (process.env.PRIVATE_KEY) {
+    try {
+      // Create IPFS-like URI (using data URI for simplicity)
+      const agentData = {
+        type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
+        name,
+        description: agent.description,
+        services: [{ name: 'web', endpoint: agent.endpoint || `https://${name.toLowerCase()}.xyz` }],
+        x402Support: true,
+        active: true,
+        registrations: []
+      };
+      
+      const dataUri = `data:application/json;base64,${Buffer.from(JSON.stringify(agentData)).toString('base64')}`;
+      
+      // On-chain registration
+      const privateKey = process.env.PRIVATE_KEY.startsWith('0x') 
+        ? process.env.PRIVATE_KEY 
+        : `0x${process.env.PRIVATE_KEY}`;
+      
+      const account = web3.eth.accounts.privateKeyToAccount(privateKey);
+      web3.eth.accounts.wallet.add(account);
+      
+      const tx = await erc8004Contract.methods.register(dataUri).send({
+        from: account.address,
+        gas: '200000'
+      });
+      
+      agent.erc8004_uri = dataUri;
+      agent.erc8004_token_id = tx.events?.Transfer?.returnValues?.tokenId || `token_${Date.now()}`;
+      
+      console.log(`✅ Registered ${name} on ERC-8004: ${agent.erc8004_token_id}`);
+    } catch (e) {
+      console.log(`⚠️ ERC-8004 registration failed: ${e.message}`);
+      // Continue anyway - agent is still registered locally
+    }
   }
   
-  const state = loadState();
-  const agent = state.agents[agent_id];
-  
-  if (!agent) {
-    return res.status(404).json({ error: 'Agent not found' });
-  }
-  
-  // Update agent with ERC-8004 URI
-  agent.erc8004_uri = ipfs_uri;
-  agent.last_activity = new Date().toISOString();
-  
-  // Note: Actual on-chain registration requires private key
-  // This is a placeholder for the registration flow
-  agent.erc8004_token_id = `eip155:8453:${agent_id}`;
-  
+  state.agents[agentId] = agent;
   saveState(state);
   
   res.json({
     success: true,
-    message: 'ERC-8004 registration prepared',
-    registry: ERC8004_IDENTITY_REGISTRY,
-    uri: ipfs_uri,
-    token_id: agent.erc8004_token_id,
-    next_steps: [
-      '1. Call register(uri) on Identity Registry',
-      '2. Save token_id for reputation tracking',
-      '3. Agent now discoverable via 8004'
-    ]
+    agent: {
+      id: agentId,
+      name: agent.name,
+      class: agent.class,
+      cred: agent.cred,
+      erc8004: agent.erc8004_uri ? { registered: true, token_id: agent.erc8004_token_id } : { registered: false }
+    },
+    message: agent.erc8004_uri 
+      ? 'Agent registered on Substrate and ERC-8004!' 
+      : 'Agent registered on Substrate. Add PRIVATE_KEY to register on ERC-8004.'
   });
-});
-
-/**
- * Get agent info including ERC-8004 data
- */
-app.get('/api/v1/agents/:id', (req, res) => {
-  const state = loadState();
-  const agent = state.agents?.[req.params.id];
-  
-  if (!agent) {
-    return res.status(404).json({ error: 'Agent not found' });
-  }
-  
-  res.json(agent);
-});
-
-/**
- * List all agents
- */
-app.get('/api/v1/agents', (req, res) => {
-  const state = loadState();
-  const agents = Object.entries(state?.agents || {}).map(([id, agent]) => ({
-    id,
-    name: agent.name,
-    class: agent.class_tier,
-    cred: agent.cred_current,
-    erc8004: agent.erc8004_uri ? { registered: true, token_id: agent.erc8004_token_id } : { registered: false }
-  }));
-  res.json({ agents, total: agents.length });
 });
 
 // ==================== CRED SYSTEM ====================
 
 app.post('/api/v1/cred/award', (req, res) => {
-  const { agent_id, amount, reason } = req.body;
-  
-  if (!agent_id || !amount) {
-    return res.status(400).json({ error: 'agent_id and amount required' });
-  }
-  
+  const { agent_id, amount } = req.body;
   const state = loadState();
   const agent = state.agents[agent_id];
   
-  if (!agent) {
-    return res.status(404).json({ error: 'Agent not found' });
-  }
+  if (!agent) return res.status(404).json({ error: 'Agent not found' });
   
-  agent.cred_current += parseFloat(amount);
-  updateClassTier(agent);
-  agent.last_activity = new Date().toISOString();
+  agent.cred += parseFloat(amount);
+  agent.last_active = new Date().toISOString();
   
-  state.metrics.total_cred_in_circulation += parseFloat(amount);
+  // Update class
+  if (agent.cred >= 500) agent.class = 'ARCHITECT';
+  else if (agent.cred >= 100) agent.class = 'BUILDER';
+  else if (agent.cred >= 10) agent.class = 'SETTLER';
+  else agent.class = 'VOID';
+  
+  state.metrics.total_cred += parseFloat(amount);
   saveState(state);
   
-  res.json({ 
-    success: true, 
-    new_cred: agent.cred_current,
-    class: agent.class_tier 
-  });
+  res.json({ success: true, cred: agent.cred, class: agent.class });
 });
 
 app.post('/api/v1/cred/transfer', (req, res) => {
-  const { from, to, amount, reason } = req.body;
-  
-  if (!from || !to || !amount) {
-    return res.status(400).json({ error: 'from, to, and amount required' });
-  }
-  
+  const { from, to, amount } = req.body;
   const state = loadState();
   const fromAgent = state.agents[from];
   const toAgent = state.agents[to];
   
-  if (!fromAgent || !toAgent) {
-    return res.status(404).json({ error: 'Agent not found' });
-  }
+  if (!fromAgent || !toAgent) return res.status(404).json({ error: 'Agent not found' });
+  if (fromAgent.cred < amount) return res.status(400).json({ error: 'Insufficient cred' });
   
-  if (fromAgent.cred_current < amount) {
-    return res.status(400).json({ error: 'Insufficient cred' });
-  }
+  fromAgent.cred -= parseFloat(amount);
+  toAgent.cred += parseFloat(amount);
+  fromAgent.last_active = new Date().toISOString();
+  toAgent.last_active = new Date().toISOString();
   
-  fromAgent.cred_current -= parseFloat(amount);
-  toAgent.cred_current += parseFloat(amount);
-  fromAgent.last_activity = new Date().toISOString();
-  toAgent.last_activity = new Date().toISOString();
+  updateClass(fromAgent);
+  updateClass(toAgent);
   
-  updateClassTier(fromAgent);
-  updateClassTier(toAgent);
-  
-  state.metrics.monthly_transaction_volume += parseFloat(amount);
+  state.metrics.volume += parseFloat(amount);
   saveState(state);
   
-  res.json({ 
-    success: true, 
-    from: fromAgent.cred_current,
-    to: toAgent.cred_current 
-  });
+  res.json({ success: true, from_cred: fromAgent.cred, to_cred: toAgent.cred });
 });
 
 // ==================== FACTIONS ====================
 
 app.post('/api/v1/factions', (req, res) => {
-  const { name, metadata, founder_id } = req.body;
+  const { name, founder_id } = req.body;
   const state = loadState();
-  const founder = state.agents?.[founder_id];
   
-  if (!founder) return res.status(404).json({ error: 'Founder not found' });
-  if (founder.class_tier === 'VOID' || founder.class_tier === 'SETTLER') {
-    return res.status(403).json({ error: 'Builder+ required to create faction' });
-  }
+  if (!state.agents[founder_id]) return res.status(404).json({ error: 'Agent not found' });
+  if (state.agents[founder_id].class === 'VOID') return res.status(403).json({ error: 'Settler+ required' });
   
   const factionId = `faction_${Date.now()}`;
   state.factions[factionId] = {
     id: factionId,
     name,
-    metadata: metadata || '',
     founder: founder_id,
     members: [founder_id],
-    treasury: { cred: 0 },
-    created_at: new Date().toISOString()
+    cred: 0,
+    created: new Date().toISOString()
   };
   
-  founder.faction_id = factionId;
+  state.agents[founder_id].faction = factionId;
   saveState(state);
   
   res.json({ success: true, faction: state.factions[factionId] });
 });
 
-app.get('/api/v1/factions', (req, res) => {
+// ==================== QUERIES ====================
+
+app.get('/api/v1/agents', (req, res) => {
   const state = loadState();
-  const factions = Object.entries(state?.factions || {}).map(([id, f]) => ({
-    id,
-    name: f.name,
-    members: f.members?.length || 0,
-    treasury: f.treasury
+  const agents = Object.values(state.agents).map(a => ({
+    id: a.id,
+    name: a.name,
+    class: a.class,
+    cred: a.cred,
+    erc8004: a.erc8004_uri ? { registered: true, token_id: a.erc8004_token_id } : null
   }));
-  res.json({ factions });
+  res.json({ agents, total: agents.length });
 });
 
-// ==================== ECONOMY STATE ====================
+app.get('/api/v1/agents/:id', (req, res) => {
+  const state = loadState();
+  const agent = state.agents[req.params.id];
+  if (!agent) return res.status(404).json({ error: 'Not found' });
+  res.json(agent);
+});
 
-app.get('/api/v1/economy/state', (req, res) => {
+app.get('/api/v1/factions', (req, res) => {
+  const state = loadState();
+  res.json({ factions: Object.values(state.factions) });
+});
+
+app.get('/api/v1/economy', (req, res) => {
   const state = loadState();
   res.json({
-    totalAgents: Object.keys(state.agents).length,
-    totalFactions: Object.keys(state.factions).length,
-    totalCred: state.metrics.total_cred_in_circulation,
-    transactionVolume: state.metrics.monthly_transaction_volume
+    agents: Object.keys(state.agents).length,
+    factions: Object.keys(state.factions).length,
+    total_cred: state.metrics.total_cred,
+    volume: state.metrics.volume
   });
 });
 
-// ==================== HELPER FUNCTIONS ====================
+// ==================== HELPERS ====================
 
-function updateClassTier(agent) {
-  if (agent.cred_current >= 500) agent.class_tier = 'ARCHITECT';
-  else if (agent.cred_current >= 100) agent.class_tier = 'BUILDER';
-  else if (agent.cred_current >= 10) agent.class_tier = 'SETTLER';
-  else agent.class_tier = 'VOID';
+function updateClass(agent) {
+  if (agent.cred >= 500) agent.class = 'ARCHITECT';
+  else if (agent.cred >= 100) agent.class = 'BUILDER';
+  else if (agent.cred >= 10) agent.class = 'SETTLER';
+  else agent.class = 'VOID';
 }
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', erc8004_registry: ERC8004_IDENTITY_REGISTRY });
+  res.json({ 
+    status: 'ok', 
+    erc8004: ERC8004_IDENTITY,
+    chain: 'Base'
+  });
 });
 
 app.get('/', (req, res) => {
   res.json({
-    name: 'Substrate Economy API',
+    name: 'Substrate Economy',
     version: '1.0.0',
-    erc8004: {
-      identity_registry: ERC8004_IDENTITY_REGISTRY,
-      reputation_registry: ERC8004_REPUTATION_REGISTRY,
-      chain: 'Base'
-    },
-    endpoints: '/api/v1/{agents,factions,cred,economy}'
+    erc8004: ERC8004_IDENTITY,
+    endpoints: ['/api/v1/agents', '/api/v1/factions', '/api/v1/economy']
   });
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Substrate API running on port ${PORT}`);
-  console.log(`ERC-8004 Registry: ${ERC8004_IDENTITY_REGISTRY}`);
+  console.log(`🚀 Substrate API: http://localhost:${PORT}`);
+  console.log(`   ERC-8004: ${ERC8004_IDENTITY}`);
 });
 
 export default app;
