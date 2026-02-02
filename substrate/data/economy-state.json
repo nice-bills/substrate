@@ -1,0 +1,29 @@
+{
+  "version": "1.0.0",
+  "initialized": "2026-02-02T00:50:00Z",
+  "genesis": {
+    "address": "genesis-main",
+    "class": "Genesis",
+    "cred": "∞",
+    "created": "2026-02-02T00:50:00Z"
+  },
+  "agents": {},
+  "factions": {},
+  "resources": {
+    "computeCredits": {
+      "total": 1000,
+      "allocated": 0,
+      "monthlyRefresh": true
+    },
+    "governanceTokens": {
+      "total": 0,
+      "distribution": "1 token per 100 cred earned"
+    }
+  },
+  "economyStats": {
+    "totalCred": 0,
+    "totalAgents": 0,
+    "totalFactions": 0,
+    "giniCoefficient": 0
+  }
+}

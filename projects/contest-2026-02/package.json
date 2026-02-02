@@ -1,0 +1,35 @@
+{
+  "name": "substrate-contest-2026-02",
+  "version": "1.0.0",
+  "description": "Substrate: ERC-8004 + x402 Agent Economy Demo for Killing Challenge",
+  "scripts": {
+    "test": "forge test",
+    "build": "forge build",
+    "deploy:sepolia": "forge script script/Deploy.s.sol:Deploy --rpc-url $SEPOLIA_RPC --broadcast --verify",
+    "deploy:base": "forge script script/Deploy.s.sol:Deploy --rpc-url $BASE_RPC --broadcast --verify",
+    "demo": "node scripts/demo.js",
+    "demo:testnet": "node scripts/demo.js --network base-sepolia",
+    "register": "node scripts/register-agent.js",
+    "pay": "node scripts/x402-payment.js",
+    "check:balance": "cast balance <address> --rpc-url <network>",
+    "verify": "forge verify-contract <address> <contract>"
+  },
+  "keywords": [
+    "erc-8004",
+    "x402",
+    "ai-agents",
+    "substrate",
+    "base",
+    "defi"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.4.0",
+    "dotenv": "^16.4.0",
+    "ethers": "^6.10.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.0"
+  }
+}

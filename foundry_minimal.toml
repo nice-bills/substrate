@@ -1,0 +1,9 @@
+[profile.default]
+src = 'src'
+out = 'out'
+libs = []
+test = 'test'
+script = 'script'
+
+[fmt]
+solc_version = '0.8.19'

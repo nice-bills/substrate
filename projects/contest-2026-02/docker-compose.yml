@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  substrate-api:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - STATE_FILE=/app/data/economy-state.json
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Optional: Substrate dashboard
+  substrate-dashboard:
+    image: node:22-bookworm
+    working_dir: /app
+    command: npx -y serve docs -l 3001
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./docs:/app
+    restart: unless-stopped
+
+networks:
+  default:
+    name: substrate-network

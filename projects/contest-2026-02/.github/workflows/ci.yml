@@ -1,0 +1,83 @@
+name: Substrate CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  FOUNDRY_VERSION: nightly
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+      
+      - name: Install Dependencies
+        run: |
+          forge install OpenZeppelin/openzeppelin-contracts
+          forge install foundry-rs/forge-std
+      
+      - name: Build Contracts
+        run: forge build
+      
+      - name: Run Tests
+        run: forge test
+
+  api-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      
+      - name: Install Dependencies
+        run: npm install --prefix api
+      
+      - name: Run API Tests
+        run: npm test --prefix api
+
+  lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      
+      - name: Install Linter
+        run: npm install --prefix api eslint
+      
+      - name: Run Linter
+        run: npx eslint --prefix api src/
+
+  deploy:
+    needs: [test, api-test, lint]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Deploy to Production
+        run: |
+          echo "Deployment would happen here"
+          echo "Steps: Build Docker image, push to registry, deploy to server"

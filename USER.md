@@ -1,0 +1,6 @@
+- **Name:** Williams
+- **What to call them:** Williams
+- **Username:** @nice_bills
+- **Telegram ID:** 1001101664
+- **Timezone:** Likely UTC+2 (based on timestamp showing +2m)
+- **Notes:** Just met! Still learning about them.

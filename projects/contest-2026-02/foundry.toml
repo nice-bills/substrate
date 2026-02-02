@@ -1,0 +1,15 @@
+[profile.default]
+src = 'contracts/src'
+out = 'contracts/out'
+libs = ['contracts/lib']
+test = 'contracts/test'
+script = 'contracts/script'
+
+[fmt]
+solc_version = '0.8.19'
+
+[profile.release]
+solc_version = '0.8.19'
+via_ir = true
+optimizer = true
+optimizer_runs = 200
