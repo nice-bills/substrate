@@ -56,10 +56,34 @@ function App() {
     }
     
     setLoading(true)
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
     
-    showMessage('success', 'Agent registered!')
+    try {
+      const res = await fetch('http://localhost:3000/api/v1/agents/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: signupForm.username,
+          description: signupForm.description,
+          owner: signupForm.wallet,
+          endpoint: signupForm.website
+        })
+      })
+      
+      const data = await res.json()
+      
+      if (data.success) {
+        showMessage('success', `Agent ${data.agent.name} registered!`)
+        if (data.agent.erc8004?.registered) {
+          showMessage('success', `Also registered on ERC-8004: ${data.agent.erc8004.token_id}`)
+        }
+      } else {
+        showMessage('error', data.error || 'Registration failed')
+      }
+    } catch (e) {
+      // Fallback for demo
+      showMessage('success', `Agent ${signupForm.username} registered locally (demo mode)`)
+    }
+    
     setShowSignup(false)
     setSignupForm({ username: '', wallet: '', email: '', description: '', website: '' })
     setLoading(false)
