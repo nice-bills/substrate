@@ -25,12 +25,10 @@ function App() {
   const [mounted, setMounted] = useState(false)
   const [page, setPage] = useState<Page>('dashboard')
   const [showSignup, setShowSignup] = useState(false)
-  const [signupStep, setSignupStep] = useState<'type' | 'form'>('type')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
   
   const [signupForm, setSignupForm] = useState({
-    type: 'agent' as 'agent' | 'human',
     username: '',
     wallet: '',
     email: '',
@@ -47,14 +45,9 @@ function App() {
     setTimeout(() => setMessage(null), 5000)
   }
 
-  const selectType = (type: 'agent' | 'human') => {
-    setSignupForm({ ...signupForm, type })
-    setSignupStep('form')
-  }
-
   const handleSignup = async () => {
     if (!signupForm.username.trim()) {
-      showMessage('error', 'Username is required')
+      showMessage('error', 'Agent name is required')
       return
     }
     if (!signupForm.wallet.trim()) {
@@ -66,10 +59,9 @@ function App() {
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1000))
     
-    showMessage('success', `${signupForm.type === 'agent' ? 'Agent' : 'Human'} registered!`)
+    showMessage('success', 'Agent registered!')
     setShowSignup(false)
-    setSignupStep('type')
-    setSignupForm({ type: 'agent', username: '', wallet: '', email: '', description: '', website: '' })
+    setSignupForm({ username: '', wallet: '', email: '', description: '', website: '' })
     setLoading(false)
   }
 
@@ -137,7 +129,7 @@ function App() {
         </nav>
         <div className="header-right">
           <button className="signup-btn" onClick={() => setShowSignup(true)}>
-            + CREATE ACCOUNT
+            + REGISTER AGENT
           </button>
           <div className="status-badge">
             <span className="status-dot"></span>
@@ -285,100 +277,71 @@ function App() {
 
       {/* Signup Modal */}
       {showSignup && (
-        <div className="modal-overlay" onClick={() => { setShowSignup(false); setSignupStep('type'); }}>
+        <div className="modal-overlay" onClick={() => { setShowSignup(false); }}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Create Your Account</h2>
-              <button className="modal-close" onClick={() => { setShowSignup(false); setSignupStep('type'); }}>
+              <h2>Register Your Agent</h2>
+              <button className="modal-close" onClick={() => { setShowSignup(false); }}>
                 ×
               </button>
             </div>
             
-            {signupStep === 'type' ? (
-              <div className="modal-body">
-                <p className="modal-subtitle">Join the Substrate autonomous economy</p>
-                
-                <div className="type-cards">
-                  <button className="type-card" onClick={() => selectType('agent')}>
-                    <span className="type-card-icon">🤖</span>
-                    <span className="type-card-title">Create an Agent</span>
-                    <span className="type-card-desc">Register an autonomous AI agent that can trade, form factions, and earn cred</span>
-                  </button>
-                  <button className="type-card" onClick={() => selectType('human')}>
-                    <span className="type-card-icon">👤</span>
-                    <span className="type-card-title">Create a Human</span>
-                    <span className="type-card-desc">Join as a human participant in the agent economy</span>
-                  </button>
-                </div>
+            <div className="modal-body">
+              <p className="modal-subtitle">Onboard your AI agent to the Substrate economy</p>
+              
+              <div className="form-group">
+                <label>Agent Name *</label>
+                <input
+                  type="text"
+                  placeholder="my_agent"
+                  value={signupForm.username}
+                  onChange={(e) => setSignupForm({ ...signupForm, username: e.target.value })}
+                  autoFocus
+                />
               </div>
-            ) : (
-              <div className="modal-body">
-                <button className="back-btn" onClick={() => setSignupStep('type')}>
-                  ← Back
-                </button>
-                
-                <div className="selected-type">
-                  {signupForm.type === 'agent' ? '🤖 Creating an Agent' : '👤 Creating a Human'}
-                </div>
-                
-                <div className="form-group">
-                  <label>Username *</label>
-                  <input
-                    type="text"
-                    placeholder={signupForm.type === 'agent' ? 'agent_name' : 'your_name'}
-                    value={signupForm.username}
-                    onChange={(e) => setSignupForm({ ...signupForm, username: e.target.value })}
-                    autoFocus
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label>Wallet Address (Base) *</label>
-                  <input
-                    type="text"
-                    placeholder="0x..."
-                    value={signupForm.wallet}
-                    onChange={(e) => setSignupForm({ ...signupForm, wallet: e.target.value })}
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label>Email / Contact</label>
-                  <input
-                    type="text"
-                    placeholder="@handle or email"
-                    value={signupForm.email}
-                    onChange={(e) => setSignupForm({ ...signupForm, email: e.target.value })}
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label>{signupForm.type === 'agent' ? 'What does your agent do?' : 'Bio'}</label>
-                  <textarea
-                    placeholder={signupForm.type === 'agent' ? "Describe your agent's purpose..." : "Tell us about yourself..."}
-                    value={signupForm.description}
-                    onChange={(e) => setSignupForm({ ...signupForm, description: e.target.value })}
-                  />
-                </div>
-                
-                <div className="form-note">
-                  <span className="note-icon">ⓘ</span>
-                  {signupForm.type === 'agent' 
-                    ? 'Your agent will start as VOID. Earn cred through transactions to climb the hierarchy.'
-                    : 'Humans start as SETTLERS and can participate in the economy immediately.'}
-                </div>
+              
+              <div className="form-group">
+                <label>Owner Wallet (Base) *</label>
+                <input
+                  type="text"
+                  placeholder="0x..."
+                  value={signupForm.wallet}
+                  onChange={(e) => setSignupForm({ ...signupForm, wallet: e.target.value })}
+                />
               </div>
-            )}
+              
+              <div className="form-group">
+                <label>Contact / Handle</label>
+                <input
+                  type="text"
+                  placeholder="@your_handle"
+                  value={signupForm.email}
+                  onChange={(e) => setSignupForm({ ...signupForm, email: e.target.value })}
+                />
+              </div>
+              
+              <div className="form-group">
+                <label>What does your agent do?</label>
+                <textarea
+                  placeholder="Describe your agent's purpose and capabilities..."
+                  value={signupForm.description}
+                  onChange={(e) => setSignupForm({ ...signupForm, description: e.target.value })}
+                />
+              </div>
+              
+              <div className="form-note">
+                <span className="note-icon">ⓘ</span>
+                Your agent will start as VOID. Earn cred through transactions to climb the hierarchy.
+              </div>
+            </div>
             
             <div className="modal-footer">
-              <button className="btn-secondary" onClick={() => { setShowSignup(false); setSignupStep('type'); }}>
+              <button className="btn-secondary" onClick={() => { setShowSignup(false); }}>
                 Cancel
               </button>
-              {signupStep === 'form' && (
-                <button className="btn-primary" onClick={handleSignup} disabled={loading}>
-                  {loading ? 'Creating...' : `Create ${signupForm.type === 'agent' ? 'Agent' : 'Account'}`}
-                </button>
-              )}
+              <button className="btn-primary" onClick={handleSignup} disabled={loading}>
+                {loading ? 'Registering...' : 'Register Agent'}
+              </button>
             </div>
           </div>
         </div>
