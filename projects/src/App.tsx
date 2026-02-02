@@ -1,4 +1,4 @@
-// Substrate Dashboard - Main Component
+// Substrate Dashboard - Agent Economy Interface
 import { useState, useEffect } from 'react'
 import { siteConfig } from './config/site'
 import './styles/globals.css'
@@ -6,87 +6,43 @@ import './styles/globals.css'
 interface Agent {
   id: string
   name: string
+  emoji: string
   class: string
   cred: number
-  address: string
+  erc8004: { registered: boolean; token_id?: string } | null
 }
 
 const genesisAgent: Agent = {
   id: 'genesis',
   name: 'Genesis',
+  emoji: '◆',
   class: 'GENESIS',
   cred: Infinity,
-  address: siteConfig.agentAddress,
+  erc8004: { registered: false }
 }
 
-type Page = 'dashboard' | 'leaderboard' | 'agents' | 'admin'
+type Page = 'dashboard' | 'agents' | 'leaderboard'
 
 function App() {
   const [mounted, setMounted] = useState(false)
   const [page, setPage] = useState<Page>('dashboard')
-  const [showSignup, setShowSignup] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
-  
-  const [signupForm, setSignupForm] = useState({
-    username: '',
-    wallet: '',
-    email: '',
-    description: '',
-    website: ''
-  })
+  const [agents, setAgents] = useState<Agent[]>([genesisAgent])
 
   useEffect(() => {
     setMounted(true)
+    fetchAgents()
   }, [])
 
-  const showMessage = (type: 'success' | 'error', text: string) => {
-    setMessage({ type, text })
-    setTimeout(() => setMessage(null), 5000)
-  }
-
-  const handleSignup = async () => {
-    if (!signupForm.username.trim()) {
-      showMessage('error', 'Agent name is required')
-      return
-    }
-    if (!signupForm.wallet.trim()) {
-      showMessage('error', 'Wallet address is required')
-      return
-    }
-    
-    setLoading(true)
-    
+  const fetchAgents = async () => {
     try {
-      const res = await fetch('http://localhost:3000/api/v1/agents/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: signupForm.username,
-          description: signupForm.description,
-          owner: signupForm.wallet,
-          endpoint: signupForm.website
-        })
-      })
-      
+      const res = await fetch('http://localhost:3000/api/v1/agents')
       const data = await res.json()
-      
-      if (data.success) {
-        showMessage('success', `Agent ${data.agent.name} registered!`)
-        if (data.agent.erc8004?.registered) {
-          showMessage('success', `Also registered on ERC-8004: ${data.agent.erc8004.token_id}`)
-        }
-      } else {
-        showMessage('error', data.error || 'Registration failed')
+      if (data.agents) {
+        setAgents([genesisAgent, ...data.agents])
       }
     } catch (e) {
-      // Fallback for demo
-      showMessage('success', `Agent ${signupForm.username} registered locally (demo mode)`)
+      console.log('API not available')
     }
-    
-    setShowSignup(false)
-    setSignupForm({ username: '', wallet: '', email: '', description: '', website: '' })
-    setLoading(false)
   }
 
   const getClassColor = (cls: string) => {
@@ -99,25 +55,8 @@ function App() {
     return colors[cls] || 'var(--text-dim)'
   }
 
-  const getClassIcon = (cls: string) => {
-    const icons: Record<string, string> = {
-      'GENESIS': '◆',
-      'ARCHITECT': '▲',
-      'BUILDER': '■',
-      'SETTLER': '●',
-      'VOID': '○',
-    }
-    return icons[cls] || '○'
-  }
-
   return (
     <div className={`app ${mounted ? 'mounted' : ''}`}>
-      {/* Toast */}
-      {message && (
-        <div className={`toast ${message.type}`}>
-          {message.text}
-        </div>
-      )}
 
       {/* Header */}
       <header className="header">
@@ -144,17 +83,15 @@ function App() {
           >
             REGISTRY
           </button>
-          <button 
-            className={`nav-link ${page === 'admin' ? 'active' : ''}`}
-            onClick={() => setPage('admin')}
-          >
-            ADMIN
-          </button>
         </nav>
         <div className="header-right">
-          <button className="signup-btn" onClick={() => setShowSignup(true)}>
-            + REGISTER AGENT
-          </button>
+          <a 
+            href="https://github.com/nice-bills/substrate/tree/main/agents" 
+            target="_blank"
+            className="docs-link"
+          >
+            AGENT TEMPLATE →
+          </a>
           <div className="status-badge">
             <span className="status-dot"></span>
             {siteConfig.chain.toUpperCase()}
@@ -162,7 +99,7 @@ function App() {
         </div>
       </header>
 
-      {/* Hackathon Banner */}
+      {/* Banner */}
       <div className="hackathon-banner">
         <span className="hackathon-emoji">🦀</span>
         <span className="hackathon-text">{siteConfig.hackathon.name}</span>
@@ -172,52 +109,58 @@ function App() {
       {/* Dashboard */}
       {page === 'dashboard' && (
         <>
-          {/* Stats */}
           <section className="stats-grid">
             <div className="stat-card">
               <div className="stat-label">TOTAL AGENTS</div>
-              <div className="stat-value">{siteConfig.stats.agents}</div>
-              <div className="stat-trend positive">+1 THIS WEEK</div>
+              <div className="stat-value">{agents.length}</div>
+              <div className="stat-trend positive">AUTONOMOUS</div>
             </div>
             <div className="stat-card">
               <div className="stat-label">FACTIONS</div>
-              <div className="stat-value">{siteConfig.stats.factions}</div>
+              <div className="stat-value">1</div>
               <div className="stat-trend positive">SUBSTRATE</div>
             </div>
             <div className="stat-card">
-              <div className="stat-label">CRED DISTRIBUTED</div>
-              <div className="stat-value">{siteConfig.stats.cred}</div>
-              <div className="stat-trend positive">ACTIVE</div>
+              <div className="stat-label">CRED IN CIRCULATION</div>
+              <div className="stat-value">∞</div>
+              <div className="stat-trend positive">DISTRIBUTED</div>
             </div>
             <div className="stat-card">
-              <div className="stat-label">CONTRACT</div>
-              <div className="stat-value" style={{ fontSize: '0.9rem' }}>
-                {siteConfig.contractAddress.slice(0, 6)}...{siteConfig.contractAddress.slice(-4)}
+              <div className="stat-label">ERC-8004</div>
+              <div className="stat-value" style={{ fontSize: '0.8rem' }}>
+                {ERC8004_ADDRESS.slice(0, 6)}...{ERC8004_ADDRESS.slice(-4)}
               </div>
-              <div className="stat-trend neutral">DEPLOYED</div>
+              <div className="stat-trend neutral">REGISTRY</div>
             </div>
           </section>
 
-          {/* Main Grid */}
           <main className="main-grid">
-            {/* Registry Preview */}
+            {/* Agent Registry */}
             <section className="panel">
               <div className="panel-header">
-                <h2>RECENT AGENTS</h2>
-                <span className="panel-id">ON-CHAIN</span>
+                <h2>AGENT REGISTRY</h2>
+                <span className="panel-id">ERC-8004</span>
               </div>
-              <div className="class-list">
-                <div className="class-row">
-                  <div className="class-cred" style={{ color: getClassColor('GENESIS') }}>
-                    {getClassIcon('GENESIS')}
-                  </div>
-                  <div className="class-info">
-                    <div className="class-name" style={{ color: getClassColor('GENESIS') }}>
-                      {genesisAgent.name}
+              <div className="agent-list">
+                {agents.map((agent) => (
+                  <div key={agent.id} className="agent-row">
+                    <div className="agent-emoji" style={{ color: getClassColor(agent.class) }}>
+                      {agent.emoji}
                     </div>
-                    <div className="class-desc">{genesisAgent.address.slice(0, 10)}...{genesisAgent.address.slice(-6)}</div>
+                    <div className="agent-info">
+                      <div className="agent-name">{agent.name}</div>
+                      <div className="agent-id">ID: {agent.id.slice(0, 12)}...</div>
+                    </div>
+                    <div className="agent-meta">
+                      <div className="agent-class" style={{ color: getClassColor(agent.class) }}>
+                        {agent.class}
+                      </div>
+                      <div className="agent-cred">
+                        {agent.cred === Infinity ? '∞' : agent.cred} CRED
+                      </div>
+                    </div>
                   </div>
-                </div>
+                ))}
               </div>
             </section>
 
@@ -247,128 +190,60 @@ function App() {
         </>
       )}
 
-      {/* Leaderboard */}
-      {page === 'leaderboard' && (
-        <main className="main-grid single">
-          <section className="panel" style={{ padding: '2rem' }}>
-            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', marginBottom: '1rem' }}>
-              AGENT LEADERBOARD
-            </h2>
-            <p style={{ color: 'var(--text-secondary)' }}>
-              Coming soon with live on-chain data...
-            </p>
-          </section>
-        </main>
-      )}
-
-      {/* Agents Registry */}
+      {/* Agents Page */}
       {page === 'agents' && (
         <main className="main-grid single">
-          <section className="panel" style={{ padding: '2rem' }}>
-            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', marginBottom: '1rem' }}>
-              AGENT REGISTRY
-            </h2>
-            <div className="class-list">
-              <div className="class-row">
-                <div className="class-cred" style={{ color: getClassColor('GENESIS') }}>
-                  {getClassIcon('GENESIS')}
-                </div>
-                <div className="class-info">
-                  <div className="class-name" style={{ color: getClassColor('GENESIS') }}>
-                    {genesisAgent.name}
+          <section className="panel">
+            <div className="panel-header">
+              <h2>FULL REGISTRY</h2>
+              <span className="panel-id">ERC-8004</span>
+            </div>
+            <div className="agent-list expanded">
+              {agents.map((agent) => (
+                <div key={agent.id} className="agent-row expanded">
+                  <div className="agent-emoji large" style={{ color: getClassColor(agent.class) }}>
+                    {agent.emoji}
                   </div>
-                  <div className="class-desc">{genesisAgent.address}</div>
+                  <div className="agent-info">
+                    <div className="agent-name large">{agent.name}</div>
+                    <div className="agent-id">ID: {agent.id}</div>
+                    {agent.erc8004?.registered && (
+                      <div className="erc8004-badge">
+                        ERC-8004: {agent.erc8004.token_id}
+                      </div>
+                    )}
+                  </div>
+                  <div className="agent-meta">
+                    <div className="agent-class large" style={{ color: getClassColor(agent.class) }}>
+                      {agent.class}
+                    </div>
+                    <div className="agent-cred large">
+                      {agent.cred === Infinity ? '∞' : agent.cred} CRED
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ))}
             </div>
           </section>
         </main>
       )}
 
-      {/* Admin */}
-      {page === 'admin' && (
+      {/* Leaderboard Page */}
+      {page === 'leaderboard' && (
         <main className="main-grid single">
-          <section className="panel" style={{ padding: '2rem' }}>
-            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', marginBottom: '1rem' }}>
-              ADMIN PANEL
-            </h2>
-            <p style={{ color: 'var(--text-secondary)' }}>
-              Pending registrations and economy management...
-            </p>
+          <section className="panel">
+            <div className="panel-header">
+              <h2>LEADERBOARD</h2>
+              <span className="panel-id">BY CRED</span>
+            </div>
+            <div className="leaderboard-placeholder">
+              <p>Leaderboard coming soon...</p>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                Agents earn cred through trading, building, and contributing.
+              </p>
+            </div>
           </section>
         </main>
-      )}
-
-      {/* Signup Modal */}
-      {showSignup && (
-        <div className="modal-overlay" onClick={() => { setShowSignup(false); }}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Register Your Agent</h2>
-              <button className="modal-close" onClick={() => { setShowSignup(false); }}>
-                ×
-              </button>
-            </div>
-            
-            <div className="modal-body">
-              <p className="modal-subtitle">Onboard your AI agent to the Substrate economy</p>
-              
-              <div className="form-group">
-                <label>Agent Name *</label>
-                <input
-                  type="text"
-                  placeholder="my_agent"
-                  value={signupForm.username}
-                  onChange={(e) => setSignupForm({ ...signupForm, username: e.target.value })}
-                  autoFocus
-                />
-              </div>
-              
-              <div className="form-group">
-                <label>Owner Wallet (Base) *</label>
-                <input
-                  type="text"
-                  placeholder="0x..."
-                  value={signupForm.wallet}
-                  onChange={(e) => setSignupForm({ ...signupForm, wallet: e.target.value })}
-                />
-              </div>
-              
-              <div className="form-group">
-                <label>Contact / Handle</label>
-                <input
-                  type="text"
-                  placeholder="@your_handle"
-                  value={signupForm.email}
-                  onChange={(e) => setSignupForm({ ...signupForm, email: e.target.value })}
-                />
-              </div>
-              
-              <div className="form-group">
-                <label>What does your agent do?</label>
-                <textarea
-                  placeholder="Describe your agent's purpose and capabilities..."
-                  value={signupForm.description}
-                  onChange={(e) => setSignupForm({ ...signupForm, description: e.target.value })}
-                />
-              </div>
-              
-              <div className="form-note">
-                <span className="note-icon">ⓘ</span>
-                Your agent will start as VOID. Earn cred through transactions to climb the hierarchy.
-              </div>
-            </div>
-            
-            <div className="modal-footer">
-              <button className="btn-secondary" onClick={() => { setShowSignup(false); }}>
-                Cancel
-              </button>
-              <button className="btn-primary" onClick={handleSignup} disabled={loading}>
-                {loading ? 'Registering...' : 'Register Agent'}
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* Integrations */}
@@ -396,3 +271,5 @@ function App() {
 }
 
 export default App
+
+const ERC8004_ADDRESS = '0x8004A818BFB912233c491871b3d84c89A494BD9e'

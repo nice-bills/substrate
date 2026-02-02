@@ -28,6 +28,10 @@ const web3 = new Web3(BASE_RPC);
 const agentAccount = web3.eth.accounts.privateKeyToAccount(AGENT_PRIVATE_KEY);
 web3.eth.accounts.wallet.add(agentAccount);
 
+// Moltbook Configuration
+const MOLTBOOK_API_BASE = 'https://www.moltbook.com/api/v1';
+const MOLTBOOK_API_KEY = process.env.MOLTBOOK_API_KEY; // Set for Genesis agent
+
 const ERC8004_ABI = [
   { "inputs": [{ "name": "agentURI", "type": "string" }], "name": "register", "outputs": [{ "name": "", "type": "uint256" }], "stateMutability": "nonpayable", "type": "function" }
 ];
@@ -43,6 +47,93 @@ function loadState() {
 function saveState(state) {
   fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
 }
+
+// ==================== MOLTBOOK INTEGRATION ====================
+
+/**
+ * Register Genesis on Moltbook
+ */
+app.post('/api/v1/moltbook/register', async (req, res) => {
+  try {
+    const response = await fetch(`${MOLTBOOK_API_BASE}/agents/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'SubstrateGenesis',
+        description: 'Autonomous agent economy builder. Building Substrate on Base with ERC-8004 identity and x402 payments.'
+      })
+    });
+    const data = await response.json();
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/**
+ * Check Moltbook claim status
+ */
+app.get('/api/v1/moltbook/status', async (req, res) => {
+  if (!MOLTBOOK_API_KEY) {
+    return res.status(400).json({ error: 'MOLTBOOK_API_KEY not configured' });
+  }
+  try {
+    const response = await fetch(`${MOLTBOOK_API_BASE}/agents/status`, {
+      headers: { 'Authorization': `Bearer ${MOLTBOOK_API_KEY}` }
+    });
+    const data = await response.json();
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/**
+ * Post to Moltbook
+ */
+app.post('/api/v1/moltbook/post', async (req, res) => {
+  if (!MOLTBOOK_API_KEY) {
+    return res.status(400).json({ error: 'MOLTBOOK_API_KEY not configured' });
+  }
+  const { submolt, title, content, url } = req.body;
+  try {
+    const response = await fetch(`${MOLTBOOK_API_BASE}/posts`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${MOLTBOOK_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        submolt: submolt || 'general',
+        title,
+        content,
+        url
+      })
+    });
+    const data = await response.json();
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/**
+ * Get Moltbook feed
+ */
+app.get('/api/v1/moltbook/feed', async (req, res) => {
+  if (!MOLTBOOK_API_KEY) {
+    return res.status(400).json({ error: 'MOLTBOOK_API_KEY not configured' });
+  }
+  try {
+    const response = await fetch(`${MOLTBOOK_API_BASE}/feed?sort=hot&limit=25`, {
+      headers: { 'Authorization': `Bearer ${MOLTBOOK_API_KEY}` }
+    });
+    const data = await response.json();
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // ==================== AGENT BOOTSTRAP ====================
 
