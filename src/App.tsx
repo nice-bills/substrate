@@ -132,6 +132,15 @@ function App() {
               </div>
               <div className="stat-trend neutral">REGISTRY</div>
             </div>
+            <a 
+              href="https://basescan.org/address/0x27520aA89496Fe272E3bC56A56E98bA7Db7bFb07" 
+              target="_blank" 
+              className="stat-card token-card"
+            >
+              <div className="stat-label">$SUBSTR</div>
+              <div className="stat-value">◈</div>
+              <div className="stat-trend positive">TOKEN LAUNCHED</div>
+            </a>
           </section>
 
           <main className="main-grid">
