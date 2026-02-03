@@ -225,9 +225,12 @@ app.post('/api/v1/agents/bootstrap', async (req, res) => {
 
 /**
  * Quick registration for agents that don't have identity files yet
+ * 
+ * Agent provides its own address (from embedded key) for ERC-8004 registration
+ * This ensures the agent OWNS its identity, not Genesis
  */
 app.post('/api/v1/agents/register', async (req, res) => {
-  const { name, description, owner } = req.body;
+  const { name, description, owner_address, public_key, capabilities } = req.body;
   
   if (!name) {
     return res.status(400).json({ error: 'name required' });
@@ -236,12 +239,18 @@ app.post('/api/v1/agents/register', async (req, res) => {
   const state = loadState();
   const agentId = `0x${Date.now().toString(16).padStart(16, '0')}`;
   
+  // Agent's own address (from embedded key) - this is WHO OWNS the agent
+  const agentAddress = owner_address || null;
+  
   const agent = {
     id: agentId,
     name,
     description: description || 'Autonomous agent',
     emoji: '🤖',
-    owner: owner || agentAccount.address,
+    owner: agentAddress,  // Agent owns itself
+    address: agentAddress,  // Agent's signing address
+    public_key: public_key || null,
+    capabilities: capabilities || [],
     class: 'VOID',
     cred: 0,
     erc8004_token_id: null,
@@ -249,26 +258,53 @@ app.post('/api/v1/agents/register', async (req, res) => {
     last_active: new Date().toISOString()
   };
   
-  // Register on ERC-8004
-  try {
-    const dataUri = `data:application/json;base64,${Buffer.from(JSON.stringify({
-      type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
-      name,
-      description: agent.description,
-      services: [{ name: 'web', endpoint: `https://${name.toLowerCase().replace(/\s+/g, '')}.xyz` }],
-      x402Support: true,
-      active: true,
-      registrations: []
-    })).toString('base64')}`;
-    
-    const tx = await erc8004Contract.methods.register(dataUri).send({
-      from: agentAccount.address,
-      gas: '200000'
-    });
-    
-    agent.erc8004_token_id = tx.events?.Transfer?.returnValues?.tokenId || `token_${Date.now()}`;
-  } catch (e) {
-    console.log(`⚠️ ERC-8004 registration skipped: ${e.message}`);
+  // Register on ERC-8004 with agent's address as owner
+  if (agentAddress) {
+    try {
+      const dataUri = `data:application/json;base64,${Buffer.from(JSON.stringify({
+        type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
+        name: agent.name,
+        description: agent.description,
+        services: [{ name: 'web', endpoint: `https://${name.toLowerCase().replace(/\s+/g, '')}.xyz` }],
+        x402Support: true,
+        active: true,
+        registrations: []
+      })).toString('base64')}`;
+      
+      const tx = await erc8004Contract.methods.register(dataUri).send({
+        from: agentAddress,  // Agent signs this with its own key!
+        gas: '200000'
+      });
+      
+      agent.erc8004_token_id = tx.events?.Transfer?.returnValues?.tokenId || `token_${Date.now()}`;
+      console.log(`✅ ${agent.name} registered on ERC-8004: ${agent.erc8004_token_id} (owner: ${agentAddress})`);
+    } catch (e) {
+      console.log(`⚠️ ERC-8004 registration skipped: ${e.message}`);
+      // Return registration URL so agent can register directly
+      return res.json({
+        success: true,
+        agent: {
+          id: agentId,
+          name: agent.name,
+          class: agent.class,
+          cred: agent.cred,
+          erc8004: { 
+            registered: false, 
+            token_id: null,
+            data_uri: `data:application/json;base64,${Buffer.from(JSON.stringify({
+              type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
+              name: agent.name,
+              description: agent.description,
+              x402Support: true,
+              active: true
+            })).toString('base64')}`
+          }
+        },
+        message: `${agent.name} registered locally. Complete ERC-8004 registration with your embedded key.`
+      });
+    }
+  } else {
+    console.log(`⚠️ No owner address provided - skipping ERC-8004 registration`);
   }
   
   state.agents[agentId] = agent;
@@ -281,9 +317,106 @@ app.post('/api/v1/agents/register', async (req, res) => {
       name: agent.name,
       class: agent.class,
       cred: agent.cred,
+      address: agent.address,
       erc8004: agent.erc8004_token_id ? { registered: true, token_id: agent.erc8004_token_id } : null
-    }
+    },
+    message: `${agent.name} has joined the Substrate economy!`
   });
+});
+
+// ==================== AGENT TRANSACTIONS ====================
+
+/**
+ * Agent transaction signing endpoint
+ * Agent uses its embedded key to sign transactions
+ * 
+ * POST /api/v1/agents/sign
+ * {
+ *   "from_address": "0x...",
+ *   "to_address": "0x...",
+ *   "data": "0x...",
+ *   "value": "0",
+ *   "nonce": "0"
+ * }
+ */
+app.post('/api/v1/agents/sign', async (req, res) => {
+  const { from_address, to_address, data, value, nonce, gas } = req.body;
+  
+  if (!from_address || !to_address) {
+    return res.status(400).json({ error: 'from_address and to_address required' });
+  }
+  
+  // Find agent by address
+  const state = loadState();
+  let agent = null;
+  for (const [id, a] of Object.entries(state.agents)) {
+    if (a.address === from_address) {
+      agent = a;
+      break;
+    }
+  }
+  
+  if (!agent) {
+    return res.status(404).json({ error: 'Agent not found' });
+  }
+  
+  // In production, agent would use its embedded key
+  // For now, we return the transaction data for the agent to sign
+  res.json({
+    success: true,
+    agent: agent.name,
+    transaction: {
+      from: from_address,
+      to: to_address,
+      data: data || '0x',
+      value: value || '0',
+      nonce: nonce || '0',
+      gas: gas || '200000',
+      chain_id: 8453  // Base
+    },
+    message: 'Agent must sign this transaction with embedded key'
+  });
+});
+
+/**
+ * Submit signed transaction to network
+ * POST /api/v1/agents/submit
+ */
+app.post('/api/v1/agents/submit', async (req, res) => {
+  const { signed_tx } = req.body;
+  
+  if (!signed_tx) {
+    return res.status(400).json({ error: 'signed_tx required' });
+  }
+  
+  try {
+    const receipt = await web3.eth.sendSignedTransaction(signed_tx);
+    res.json({
+      success: true,
+      tx_hash: receipt.transactionHash,
+      block_number: receipt.blockNumber
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/**
+ * Get agent's balance on Base
+ */
+app.get('/api/v1/agents/:address/balance', async (req, res) => {
+  const { address } = req.params;
+  
+  try {
+    const balance = await web3.eth.getBalance(address);
+    res.json({
+      address,
+      balance: web3.utils.fromWei(balance, 'ether'),
+      unit: 'ETH'
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ==================== CRED SYSTEM ====================
@@ -631,8 +764,18 @@ app.get('/', (req, res) => {
     agent: agentAccount.address,
     version: '1.0.0',
     discovery_protocol: 'Agent Discovery v1.0',
+    autonomous: true,
+    note: 'Agents own their own identities via ERC-8004',
     endpoints: {
-      registration: ['/api/v1/agents/bootstrap', '/api/v1/agents/register'],
+      registration: [
+        'POST /api/v1/agents/register - Register agent with own address',
+        'POST /api/v1/agents/bootstrap - Register with IDENTITY.md/SOUL.md'
+      ],
+      transactions: [
+        'POST /api/v1/agents/sign - Get tx for agent to sign',
+        'POST /api/v1/agents/submit - Submit signed tx',
+        'GET /api/v1/agents/:address/balance - Check ETH balance'
+      ],
       economy: ['/api/v1/agents', '/api/v1/economy', '/api/v1/cred/*', '/api/v1/token'],
       discovery: [
         '/api/v1/discovery/announce',
