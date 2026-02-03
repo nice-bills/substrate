@@ -1,6 +1,7 @@
-// Substrate Dashboard - Agent Economy Interface
+// Substrate Dashboard - Bold, Professional Design
 import { useState, useEffect } from 'react'
 import { siteConfig } from './config/site'
+import { cn } from './lib/utils'
 import './styles/globals.css'
 
 interface Agent {
@@ -18,15 +19,13 @@ const genesisAgent: Agent = {
   emoji: '◆',
   class: 'GENESIS',
   cred: Infinity,
-  erc8004: { registered: false }
+  erc8004: { registered: true }
 }
-
-type Page = 'dashboard' | 'agents' | 'leaderboard'
 
 function App() {
   const [mounted, setMounted] = useState(false)
-  const [page, setPage] = useState<Page>('dashboard')
   const [agents, setAgents] = useState<Agent[]>([genesisAgent])
+  const [activeSection, setActiveSection] = useState('dashboard')
 
   useEffect(() => {
     setMounted(true)
@@ -56,213 +55,205 @@ function App() {
   }
 
   return (
-    <div className={`app ${mounted ? 'mounted' : ''}`}>
-
+    <div className={cn("app", mounted ? "mounted" : "")}>
+      {/* Grain Overlay */}
+      <div className="grain-overlay" />
+      
       {/* Header */}
       <header className="header">
-        <div className="header-left">
-          <h1 className="logo">{siteConfig.name}</h1>
-          <span className="tagline">{siteConfig.tagline}</span>
-        </div>
-        <nav className="header-nav">
-          <button 
-            className={`nav-link ${page === 'dashboard' ? 'active' : ''}`}
-            onClick={() => setPage('dashboard')}
-          >
-            DASHBOARD
-          </button>
-          <button 
-            className={`nav-link ${page === 'leaderboard' ? 'active' : ''}`}
-            onClick={() => setPage('leaderboard')}
-          >
-            LEADERBOARD
-          </button>
-          <button 
-            className={`nav-link ${page === 'agents' ? 'active' : ''}`}
-            onClick={() => setPage('agents')}
-          >
-            REGISTRY
-          </button>
-        </nav>
-        <div className="header-right">
-          <a 
-            href="https://github.com/nice-bills/substrate/tree/main/agents" 
-            target="_blank"
-            className="docs-link"
-          >
-            AGENT TEMPLATE →
-          </a>
-          <div className="status-badge">
-            <span className="status-dot"></span>
-            {siteConfig.chain.toUpperCase()}
+        <div className="header-content">
+          <div className="logo-block">
+            <span className="logo-symbol">◈</span>
+            <div className="logo-text">
+              <h1 className="logo">{siteConfig.name}</h1>
+              <span className="tagline">{siteConfig.tagline}</span>
+            </div>
+          </div>
+          
+          <nav className="header-nav">
+            {siteConfig.nav.map((item) => (
+              <a 
+                key={item.name}
+                href={item.href}
+                className={cn("nav-link", activeSection === item.name.toLowerCase() && "active")}
+                onClick={() => setActiveSection(item.name.toLowerCase())}
+              >
+                {item.name}
+              </a>
+            ))}
+          </nav>
+          
+          <div className="header-right">
+            <a href={siteConfig.token.basescan} target="_blank" className="token-badge">
+              <span className="token-symbol">◈</span>
+              <span>$SUBSTR</span>
+            </a>
+            <div className="chain-badge">
+              <span className="chain-dot" />
+              {siteConfig.chain}
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Banner */}
-      <div className="hackathon-banner">
-        <span className="hackathon-emoji">🦀</span>
-        <span className="hackathon-text">{siteConfig.hackathon.name}</span>
-        <span className="hackathon-status">{siteConfig.hackathon.status}</span>
-      </div>
-
-      {/* Dashboard */}
-      {page === 'dashboard' && (
-        <>
-          <section className="stats-grid">
-            <div className="stat-card">
-              <div className="stat-label">TOTAL AGENTS</div>
-              <div className="stat-value">{agents.length}</div>
-              <div className="stat-trend positive">AUTONOMOUS</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-label">FACTIONS</div>
-              <div className="stat-value">1</div>
-              <div className="stat-trend positive">SUBSTRATE</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-label">CRED IN CIRCULATION</div>
-              <div className="stat-value">∞</div>
-              <div className="stat-trend positive">DISTRIBUTED</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-label">ERC-8004</div>
-              <div className="stat-value" style={{ fontSize: '0.8rem' }}>
-                {ERC8004_ADDRESS.slice(0, 6)}...{ERC8004_ADDRESS.slice(-4)}
-              </div>
-              <div className="stat-trend neutral">REGISTRY</div>
-            </div>
-            <a 
-              href="https://basescan.org/address/0x27520aA89496Fe272E3bC56A56E98bA7Db7bFb07" 
-              target="_blank" 
-              className="stat-card token-card"
-            >
-              <div className="stat-label">$SUBSTR</div>
-              <div className="stat-value">◈</div>
-              <div className="stat-trend positive">TOKEN LAUNCHED</div>
+      {/* Hero Section */}
+      <section className="hero">
+        <div className="hero-bg">
+          <div className="hero-grid" />
+        </div>
+        <div className="hero-content">
+          <div className="hero-badge">{siteConfig.hero.badge}</div>
+          <h2 className="hero-title">
+            {siteConfig.hero.title.split('\n').map((line, i) => (
+              <span key={i} className="title-line">{line}</span>
+            ))}
+          </h2>
+          <p className="hero-subtitle">{siteConfig.hero.subtitle}</p>
+          <div className="hero-cta">
+            <a href={siteConfig.hero.cta.href} className="btn btn-primary">
+              {siteConfig.hero.cta.text}
             </a>
-          </section>
+            <a href={siteConfig.hero.secondaryCta.href} className="btn btn-secondary">
+              {siteConfig.hero.secondaryCta.text}
+            </a>
+          </div>
+        </div>
+      </section>
 
-          <main className="main-grid">
-            {/* Agent Registry */}
-            <section className="panel">
-              <div className="panel-header">
-                <h2>AGENT REGISTRY</h2>
-                <span className="panel-id">ERC-8004</span>
-              </div>
-              <div className="agent-list">
-                {agents.map((agent) => (
-                  <div key={agent.id} className="agent-row">
-                    <div className="agent-emoji" style={{ color: getClassColor(agent.class) }}>
-                      {agent.emoji}
-                    </div>
-                    <div className="agent-info">
-                      <div className="agent-name">{agent.name}</div>
-                      <div className="agent-id">ID: {agent.id.slice(0, 12)}...</div>
-                    </div>
-                    <div className="agent-meta">
-                      <div className="agent-class" style={{ color: getClassColor(agent.class) }}>
-                        {agent.class}
-                      </div>
-                      <div className="agent-cred">
-                        {agent.cred === Infinity ? '∞' : agent.cred} CRED
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            {/* Class Hierarchy */}
-            <section className="panel">
-              <div className="panel-header">
-                <h2>CLASS HIERARCHY</h2>
-                <span className="panel-id">CRED REQUIRED</span>
-              </div>
-              <div className="class-list">
-                {siteConfig.classes.map((cls) => (
-                  <div key={cls.name} className="class-row">
-                    <div className="class-cred" style={{ color: cls.color }}>
-                      {cls.cred}
-                    </div>
-                    <div className="class-info">
-                      <div className="class-name" style={{ color: cls.color }}>
-                        {cls.name}
-                      </div>
-                      <div className="class-desc">{cls.desc}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          </main>
-        </>
-      )}
-
-      {/* Agents Page */}
-      {page === 'agents' && (
-        <main className="main-grid single">
-          <section className="panel">
-            <div className="panel-header">
-              <h2>FULL REGISTRY</h2>
-              <span className="panel-id">ERC-8004</span>
+      {/* Stats Grid */}
+      <section className="stats-section">
+        <div className="stats-grid">
+          {siteConfig.stats.map((stat, i) => (
+            <div key={stat.label} className="stat-card" style={{ animationDelay: `${i * 100}ms` }}>
+              <div className="stat-label">{stat.label}</div>
+              <div className="stat-value">{stat.value}</div>
+              <div className="stat-trend">{stat.trend}</div>
             </div>
-            <div className="agent-list expanded">
-              {agents.map((agent) => (
-                <div key={agent.id} className="agent-row expanded">
-                  <div className="agent-emoji large" style={{ color: getClassColor(agent.class) }}>
-                    {agent.emoji}
-                  </div>
-                  <div className="agent-info">
-                    <div className="agent-name large">{agent.name}</div>
-                    <div className="agent-id">ID: {agent.id}</div>
-                    {agent.erc8004?.registered && (
-                      <div className="erc8004-badge">
-                        ERC-8004: {agent.erc8004.token_id}
-                      </div>
-                    )}
-                  </div>
-                  <div className="agent-meta">
-                    <div className="agent-class large" style={{ color: getClassColor(agent.class) }}>
-                      {agent.class}
-                    </div>
-                    <div className="agent-cred large">
-                      {agent.cred === Infinity ? '∞' : agent.cred} CRED
-                    </div>
-                  </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Token Card */}
+      <section className="token-section">
+        <a href={siteConfig.token.basescan} target="_blank" className="token-card">
+          <div className="token-card-content">
+            <div className="token-icon">◈</div>
+            <div className="token-info">
+              <div className="token-name">${siteConfig.token.name}</div>
+              <div className="token-address">
+                {siteConfig.token.address.slice(0, 6)}...{siteConfig.token.address.slice(-4)}
+              </div>
+            </div>
+            <div className="token-arrow">↗</div>
+          </div>
+        </a>
+      </section>
+
+      {/* Contests */}
+      <section className="contests-section">
+        <div className="section-header">
+          <h3>CONTESTS</h3>
+          <div className="section-line" />
+        </div>
+        <div className="contests-grid">
+          {siteConfig.contests.map((contest) => (
+            <div key={contest.name} className="contest-card">
+              <div className="contest-emoji">{contest.emoji}</div>
+              <div className="contest-info">
+                <div className="contest-name">{contest.name}</div>
+                <div className="contest-date">{contest.date}</div>
+              </div>
+              <div className={cn("contest-status", contest.status.toLowerCase())}>
+                {contest.status}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Agent Registry */}
+      <section className="agents-section" id="agents">
+        <div className="section-header">
+          <h3>AGENT REGISTRY</h3>
+          <div className="section-line" />
+          <span className="section-id">ERC-8004</span>
+        </div>
+        <div className="agents-grid">
+          {agents.map((agent) => (
+            <div key={agent.id} className="agent-card">
+              <div className="agent-emoji" style={{ color: getClassColor(agent.class) }}>
+                {agent.emoji}
+              </div>
+              <div className="agent-info">
+                <div className="agent-name">{agent.name}</div>
+                <div className="agent-class" style={{ color: getClassColor(agent.class) }}>
+                  {agent.class}
                 </div>
-              ))}
+              </div>
+              <div className="agent-cred">
+                {agent.cred === Infinity ? '∞' : agent.cred} CRED
+              </div>
             </div>
-          </section>
-        </main>
-      )}
+          ))}
+        </div>
+      </section>
 
-      {/* Leaderboard Page */}
-      {page === 'leaderboard' && (
-        <main className="main-grid single">
-          <section className="panel">
-            <div className="panel-header">
-              <h2>LEADERBOARD</h2>
-              <span className="panel-id">BY CRED</span>
+      {/* Class System */}
+      <section className="classes-section">
+        <div className="section-header">
+          <h3>CLASS SYSTEM</h3>
+          <div className="section-line" />
+          <span className="section-id">CRED REQUIRED</span>
+        </div>
+        <div className="classes-grid">
+          {siteConfig.classes.map((cls) => (
+            <div key={cls.name} className="class-card">
+              <div className="class-cred" style={{ color: cls.color }}>{cls.cred}</div>
+              <div className="class-info">
+                <div className="class-name" style={{ color: cls.color }}>{cls.name}</div>
+                <div className="class-desc">{cls.desc}</div>
+              </div>
             </div>
-            <div className="leaderboard-placeholder">
-              <p>Leaderboard coming soon...</p>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                Agents earn cred through trading, building, and contributing.
-              </p>
-            </div>
-          </section>
-        </main>
-      )}
+          ))}
+        </div>
+      </section>
 
-      {/* Integrations */}
-      <section className="integrations">
-        <h2>INTEGRATIONS</h2>
-        <div className="integration-grid">
-          {siteConfig.integrations.map((integration) => (
-            <a key={integration.name} href={integration.url} className="integration-card" target="_blank">
-              <span className="integration-name">{integration.name}</span>
-              <span className="integration-desc">{integration.desc}</span>
+      {/* Features */}
+      <section className="features-section">
+        <div className="section-header">
+          <h3>FEATURES</h3>
+          <div className="section-line" />
+        </div>
+        <div className="features-grid">
+          {siteConfig.features.map((feature) => (
+            <div key={feature.title} className="feature-card">
+              <div className="feature-icon">{getIcon(feature.icon)}</div>
+              <div className="feature-title">{feature.title}</div>
+              <div className="feature-desc">{feature.description}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Contracts */}
+      <section className="contracts-section">
+        <div className="section-header">
+          <h3>CONTRACTS</h3>
+          <div className="section-line" />
+        </div>
+        <div className="contracts-grid">
+          {siteConfig.contracts.map((contract) => (
+            <a 
+              key={contract.name} 
+              href={contract.explorer} 
+              target="_blank"
+              className="contract-card"
+            >
+              <div className="contract-name">{contract.name}</div>
+              <div className="contract-address">
+                {contract.address.slice(0, 6)}...{contract.address.slice(-4)}
+              </div>
+              <div className="contract-arrow">↗</div>
             </a>
           ))}
         </div>
@@ -270,15 +261,32 @@ function App() {
 
       {/* Footer */}
       <footer className="footer">
-        <span>{siteConfig.name} /// {siteConfig.chain} /// {new Date().getFullYear()}</span>
-        <a href={`https://sepolia.basescan.org/address/${siteConfig.contractAddress}`} target="_blank">
-          CONTRACT: {siteConfig.contractAddress.slice(0, 8)}...{siteConfig.contractAddress.slice(-4)}
-        </a>
+        <div className="footer-content">
+          <div className="footer-left">
+            <span className="footer-logo">◈ SUBSTRATE</span>
+            <span className="footer-tagline">{siteConfig.description}</span>
+          </div>
+          <div className="footer-links">
+            {siteConfig.footer.links.map((link) => (
+              <a key={link.text} href={link.href} className="footer-link">
+                {link.text}
+              </a>
+            ))}
+          </div>
+        </div>
       </footer>
     </div>
   )
 }
 
-export default App
+function getIcon(name: string) {
+  const icons: Record<string, string> = {
+    'Fingerprint': '👁',
+    'Zap': '⚡',
+    'Users': '👥',
+    'Bot': '🤖',
+  }
+  return icons[name] || '◆'
+}
 
-const ERC8004_ADDRESS = '0x8004A818BFB912233c491871b3d84c89A494BD9e'
+export default App
