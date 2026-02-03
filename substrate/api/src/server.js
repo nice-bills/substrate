@@ -419,6 +419,91 @@ app.get('/api/v1/agents/:address/balance', async (req, res) => {
   }
 });
 
+// ==================== X402 PAYMENTS ====================
+
+/**
+ * x402 Payment Callback
+ * Called when an agent receives an x402 payment
+ * Auto-awards CRED to the payer (who provided the service)
+ */
+app.post('/api/v1/x402/callback', (req, res) => {
+  const { payer_address, amount, service, identifier } = req.body;
+  
+  if (!payer_address || !amount) {
+    return res.status(400).json({ error: 'payer_address and amount required' });
+  }
+  
+  const state = loadState();
+  
+  // Find agent by address (or use address as ID)
+  let agent = state.agents[payer_address];
+  if (!agent) {
+    // Look up by address field
+    for (const [id, a] of Object.entries(state.agents)) {
+      if (a.address === payer_address) {
+        agent = a;
+        break;
+      }
+    }
+  }
+  
+  if (!agent) {
+    return res.status(404).json({ 
+      error: 'Agent not found',
+      hint: 'Agent must register first at /api/v1/agents/register'
+    });
+  }
+  
+  // Award cred for providing the service
+  const credAmount = parseFloat(amount) * 10; // 10x multiplier for x402 payments
+  agent.cred += credAmount;
+  agent.last_active = new Date().toISOString();
+  
+  // Update class
+  if (agent.cred >= 500) agent.class = 'ARCHITECT';
+  else if (agent.cred >= 100) agent.class = 'BUILDER';
+  else if (agent.cred >= 10) agent.class = 'SETTLER';
+  
+  state.metrics.total_cred += credAmount;
+  saveState(state);
+  
+  console.log(`💰 ${agent.name} earned ${credAmount} CRED from x402 payment`);
+  
+  res.json({
+    success: true,
+    agent: agent.name,
+    earned: credAmount,
+    total_cred: agent.cred,
+    class: agent.class
+  });
+});
+
+/**
+ * Get x402 payment requirements for an endpoint
+ */
+app.get('/api/v1/x402/requirements', (req, res) => {
+  res.json({
+    enabled: true,
+    scheme: 'usdc',
+    token: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // USDC on Base
+    chainId: 8453, // Base
+    amount: '0.01',
+    recipient: process.env.SUBSTRATE_TREASURY || '0x069c76420DD98CaFa97CC1D349bc1cC708284032',
+    headers: {
+      'X-Payment': JSON.stringify({
+        scheme: 'usdc',
+        payload: {
+          chainId: 8453,
+          contract: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+          recipient: '0x069c76420DD98CaFa97CC1D349bc1cC708284032',
+          amount: '0.01'
+        }
+      })
+    },
+    callback: '/api/v1/x402/callback'
+  });
+});
+
 // ==================== CRED SYSTEM ====================
 
 app.post('/api/v1/cred/award', (req, res) => {

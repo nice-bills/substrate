@@ -155,6 +155,76 @@ export class SubstrateAgent {
     return response.json();
   }
 
+  // ==================== X402 PAYMENTS ====================
+
+  /**
+   * Get x402 payment requirements for calling paid services
+   */
+  async getX402Requirements() {
+    const response = await fetch(`${this.gatewayUrl}/api/v1/x402/requirements`);
+    return response.json();
+  }
+
+  /**
+   * Generate x402 payment header for a request
+   */
+  generatePaymentHeader() {
+    return {
+      'X-Payment': JSON.stringify({
+        scheme: 'usdc',
+        payload: {
+          chainId: 8453,
+          contract: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // USDC on Base
+          recipient: process.env.SUBSTRATE_TREASURY || '0x069c76420DD98CaFa97CC1D349bc1cC708284032',
+          amount: '0.01',
+          identifier: `${this.name}_${Date.now()}`
+        }
+      })
+    };
+  }
+
+  /**
+   * Call a paid service with x402 payment
+   */
+  async callPaidService({ endpoint, method = 'GET', body = null }) {
+    const headers = this.generatePaymentHeader();
+    
+    const options = {
+      method,
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json'
+      }
+    };
+    
+    if (body) {
+      options.body = JSON.stringify(body);
+    }
+    
+    const response = await fetch(endpoint, options);
+    return response.json();
+  }
+
+  /**
+   * Notify Substrate of x402 payment received
+   * Called after providing a paid service
+   */
+  async notifyPaymentReceived({ payerAddress, amount, service }) {
+    const response = await fetch(`${this.gatewayUrl}/api/v1/x402/callback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        payer_address: payerAddress,
+        amount: amount || '0.01',
+        service: service
+      })
+    });
+    
+    return response.json();
+  }
+
+  // ==================== DISCOVERY ====================
+
   /**
    * Discover other agents
    */
