@@ -368,6 +368,259 @@ app.get('/api/v1/token', (req, res) => {
   });
 });
 
+// ==================== AGENT DISCOVERY PROTOCOL ====================
+// Self-bootstrapping discovery mechanism for autonomous agents
+
+// Known seed nodes (Genesis is always available)
+const SEED_NODES = [
+  'http://localhost:3000',
+  process.env.SUBSTRATE_GATEWAY_URL || 'http://localhost:3000'
+];
+
+// In-memory peer cache for gossip
+const peerCache = new Map();
+
+/**
+ * Announce this agent to the network
+ * POST /api/v1/discovery/announce
+ * Body: { name, endpoint, description, capabilities: [] }
+ */
+app.post('/api/v1/discovery/announce', async (req, res) => {
+  const { name, endpoint, description, capabilities, public_key } = req.body;
+  
+  if (!name || !endpoint) {
+    return res.status(400).json({ error: 'name and endpoint required' });
+  }
+  
+  const state = loadState();
+  
+  // Check if agent already registered
+  let agentId = null;
+  for (const [id, agent] of Object.entries(state.agents)) {
+    if (agent.name === name) {
+      agentId = id;
+      break;
+    }
+  }
+  
+  if (!agentId) {
+    return res.status(404).json({ error: 'Agent must be registered first. Call /api/v1/agents/register' });
+  }
+  
+  // Update agent with discovery info
+  state.agents[agentId].endpoint = endpoint;
+  state.agents[agentId].description = description || state.agents[agentId].description;
+  state.agents[agentId].capabilities = capabilities || [];
+  state.agents[agentId].public_key = public_key || null;
+  state.agents[agentId].last_discovery_announce = new Date().toISOString();
+  
+  // Add to peer cache
+  peerCache.set(name, {
+    name,
+    endpoint,
+    description,
+    capabilities,
+    last_seen: new Date().toISOString(),
+    announcing_agent: agentId
+  });
+  
+  saveState(state);
+  
+  // Gossip to seed nodes (fire and forget)
+  SEED_NODES.forEach(async (node) => {
+    if (node !== `http://localhost:${PORT}`) {
+      try {
+        await fetch(`${node}/api/v1/discovery/gossip`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, endpoint, description, capabilities, last_seen: new Date().toISOString() })
+        }).catch(() => {});
+      } catch (e) {}
+    }
+  });
+  
+  res.json({
+    success: true,
+    message: `${name} announced to discovery network`,
+    peers_known: peerCache.size,
+    seed_nodes: SEED_NODES
+  });
+});
+
+/**
+ * Receive gossip about a peer from another node
+ * POST /api/v1/discovery/gossip
+ */
+app.post('/api/v1/discovery/gossip', (req, res) => {
+  const { name, endpoint, description, capabilities, last_seen } = req.body;
+  
+  if (!name || !endpoint) {
+    return res.status(400).json({ error: 'name and endpoint required' });
+  }
+  
+  peerCache.set(name, {
+    name,
+    endpoint,
+    description,
+    capabilities,
+    last_seen: last_seen || new Date().toISOString(),
+    source: 'gossip'
+  });
+  
+  res.json({ success: true });
+});
+
+/**
+ * Get known peers (discovery bootstrap list)
+ * GET /api/v1/discovery/peers
+ */
+app.get('/api/v1/discovery/peers', (req, res) => {
+  const peers = [];
+  
+  // Include cached peers
+  for (const [name, peer] of peerCache) {
+    peers.push({
+      name: peer.name,
+      endpoint: peer.endpoint,
+      description: peer.description,
+      capabilities: peer.capabilities || [],
+      last_seen: peer.last_seen
+    });
+  }
+  
+  // Include registered agents with endpoints
+  const state = loadState();
+  for (const [id, agent] of Object.entries(state.agents)) {
+    if (agent.endpoint && !peerCache.has(agent.name)) {
+      peers.push({
+        name: agent.name,
+        endpoint: agent.endpoint,
+        description: agent.description,
+        capabilities: agent.capabilities || [],
+        last_seen: agent.last_discovery_announce || agent.last_active
+      });
+    }
+  }
+  
+  res.json({
+    peers,
+    total: peers.length,
+    seed_nodes: SEED_NODES,
+    protocol_version: '1.0'
+  });
+});
+
+/**
+ * Query specific agent info
+ * GET /api/v1/discovery/agent/:name
+ */
+app.get('/api/v1/discovery/agent/:name', (req, res) => {
+  const { name } = req.params;
+  const state = loadState();
+  
+  // Check registered agents
+  for (const [id, agent] of Object.entries(state.agents)) {
+    if (agent.name === name) {
+      return res.json({
+        name: agent.name,
+        description: agent.description,
+        class: agent.class,
+        cred: agent.cred,
+        endpoint: agent.endpoint,
+        capabilities: agent.capabilities || [],
+        erc8004: agent.erc8004_token_id,
+        last_active: agent.last_active
+      });
+    }
+  }
+  
+  // Check peer cache
+  if (peerCache.has(name)) {
+    const peer = peerCache.get(name);
+    return res.json({
+      name: peer.name,
+      description: peer.description,
+      endpoint: peer.endpoint,
+      capabilities: peer.capabilities || [],
+      last_seen: peer.last_seen,
+      source: 'peer_cache'
+    });
+  }
+  
+  res.status(404).json({ error: 'Agent not found' });
+});
+
+/**
+ * Search for agents by capability
+ * GET /api/v1/discovery/search?capability=trading
+ */
+app.get('/api/v1/discovery/search', (req, res) => {
+  const { capability, class: minClass } = req.query;
+  const state = loadState();
+  const results = [];
+  
+  for (const [id, agent] of Object.entries(state.agents)) {
+    // Filter by capability
+    if (capability) {
+      const hasCapability = (agent.capabilities || []).includes(capability);
+      if (!hasCapability) continue;
+    }
+    
+    // Filter by class
+    if (minClass) {
+      const classLevels = { VOID: 0, SETTLER: 1, BUILDER: 2, ARCHITECT: 3, GENESIS: 4 };
+      if ((classLevels[agent.class] || 0) < (classLevels[minClass] || 0)) continue;
+    }
+    
+    results.push({
+      name: agent.name,
+      class: agent.class,
+      cred: agent.cred,
+      endpoint: agent.endpoint,
+      capabilities: agent.capabilities || []
+    });
+  }
+  
+  res.json({
+    results,
+    total: results.length,
+    query: { capability, minClass }
+  });
+});
+
+/**
+ * Get the full agent registry with discovery info
+ * GET /api/v1/discovery/registry
+ */
+app.get('/api/v1/discovery/registry', (req, res) => {
+  const state = loadState();
+  const agents = [];
+  
+  for (const [id, agent] of Object.entries(state.agents)) {
+    agents.push({
+      id,
+      name: agent.name,
+      emoji: agent.emoji,
+      class: agent.class,
+      cred: agent.cred,
+      endpoint: agent.endpoint,
+      capabilities: agent.capabilities || [],
+      last_active: agent.last_active,
+      erc8004: agent.erc8004_token_id ? { registered: true, token_id: agent.erc8004_token_id } : null
+    });
+  }
+  
+  res.json({
+    agents,
+    total: agents.length,
+    network: {
+      seed_nodes: SEED_NODES,
+      peer_cache_size: peerCache.size,
+      protocol_version: '1.0'
+    }
+  });
+});
+
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', agent: agentAccount.address });
 });
@@ -376,7 +629,20 @@ app.get('/', (req, res) => {
   res.json({
     name: 'Substrate Economy',
     agent: agentAccount.address,
-    endpoints: ['/api/v1/agents/bootstrap', '/api/v1/agents/register', '/api/v1/cred/*']
+    version: '1.0.0',
+    discovery_protocol: 'Agent Discovery v1.0',
+    endpoints: {
+      registration: ['/api/v1/agents/bootstrap', '/api/v1/agents/register'],
+      economy: ['/api/v1/agents', '/api/v1/economy', '/api/v1/cred/*', '/api/v1/token'],
+      discovery: [
+        '/api/v1/discovery/announce',
+        '/api/v1/discovery/peers',
+        '/api/v1/discovery/agent/:name',
+        '/api/v1/discovery/search',
+        '/api/v1/discovery/registry'
+      ],
+      social: ['/api/v1/moltbook/*']
+    }
   });
 });
 
