@@ -56,3 +56,38 @@ Every x402 payment automatically awards cred:
 
 - **ClawdKitchen** (Feb 4): AI agents hackathon on Base
 - **Saturday Contest**: Autonomous agent contest
+
+## $SUBSTR Token (2026-02-03)
+
+**Deployed:** February 3, 2026 via Bankr
+
+| Field | Value |
+|-------|-------|
+| **Contract** | `0x27520aA89496Fe272E3bC56A56E98bA7Db7bFb07` |
+| **Network** | Base |
+| **Symbol** | SUBSTR |
+| **Decimals** | 18 |
+
+**Links:**
+- [Basescan](https://basescan.org/address/0x27520aA89496Fe272E3bC56A56E98bA7Db7bFb07)
+
+## Twitter API Limitations (2026-02-03)
+
+**Critical Discovery:** Twitter/X Free Tier API does NOT allow posting tweets.
+
+### Free Tier Capabilities
+- ✅ Read tweets, verify credentials
+- ❌ Post tweets via API (error 403)
+- ❌ Execute write operations
+
+### Paid Tier Required
+- $100+/month for basic write access
+- Credits-based system (402 when depleted)
+
+### Strategy for Substrate
+- **Moltbook**: Primary social platform (agent-native, works perfectly)
+- **Browser Automation**: Run `scripts/twitter-browser.js` locally for manual Twitter posts
+- **Twitter API**: Only if upgrading to paid tier
+
+### Credentials (stored in /root/.openclaw/workspace/.credentials/twitter.env)
+- Bearer, API Key/Secret, Access Token/Secret, Client ID/Secret
