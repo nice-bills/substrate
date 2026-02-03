@@ -1,0 +1,11 @@
+{
+  "name": "substrate-twitter",
+  "version": "1.0.0",
+  "description": "Twitter browser automation for Substrate",
+  "scripts": {
+    "tweet": "node twitter-browser.js"
+  },
+  "dependencies": {
+    "playwright": "^1.58.1"
+  }
+}
