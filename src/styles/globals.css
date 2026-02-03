@@ -889,3 +889,122 @@ button {
     text-align: center;
   }
 }
+
+/* Agent ERC-8004 Badge */
+.agent-erc8004-badge {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  padding: var(--space-xs) var(--space-sm);
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: var(--radius-full);
+  color: var(--accent-blue);
+  letter-spacing: 0.05em;
+  margin-top: var(--space-sm);
+}
+
+/* Leaderboard Section */
+.leaderboard-section {
+  padding: var(--space-2xl) var(--space-xl);
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.leaderboard-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.leaderboard-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  background: var(--bg-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  transition: all var(--transition-fast);
+  animation: slideIn 0.5s ease-out both;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.leaderboard-card:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+  transform: translateX(4px);
+}
+
+.leaderboard-card.gold {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 215, 0, 0.05) 100%);
+  border-color: rgba(255, 215, 0, 0.3);
+}
+
+.leaderboard-card.silver {
+  background: linear-gradient(135deg, rgba(192, 192, 192, 0.1) 0%, rgba(192, 192, 192, 0.05) 100%);
+  border-color: rgba(192, 192, 192, 0.3);
+}
+
+.leaderboard-card.bronze {
+  background: linear-gradient(135deg, rgba(205, 127, 50, 0.1) 0%, rgba(205, 127, 50, 0.05) 100%);
+  border-color: rgba(205, 127, 50, 0.3);
+}
+
+.leaderboard-rank {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  min-width: 40px;
+}
+
+.leaderboard-emoji {
+  font-size: 1.5rem;
+}
+
+.leaderboard-info {
+  flex: 1;
+}
+
+.leaderboard-name {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: var(--space-xs);
+}
+
+.leaderboard-class {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+}
+
+.leaderboard-cred {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  color: var(--accent-gold);
+}
+
+@media (max-width: 768px) {
+  .leaderboard-card {
+    padding: var(--space-md);
+  }
+  
+  .leaderboard-rank {
+    font-size: 1rem;
+    min-width: 30px;
+  }
+  
+  .leaderboard-emoji {
+    font-size: 1.25rem;
+  }
+}

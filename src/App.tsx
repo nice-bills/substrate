@@ -180,7 +180,7 @@ function App() {
         </div>
         <div className="agents-grid">
           {agents.map((agent) => (
-            <div key={agent.id} className="agent-card">
+            <div key={agent.id} className="agent-card" style={{ animationDelay: `${agents.indexOf(agent) * 50}ms` }}>
               <div className="agent-emoji" style={{ color: getClassColor(agent.class) }}>
                 {agent.emoji}
               </div>
@@ -193,8 +193,41 @@ function App() {
               <div className="agent-cred">
                 {agent.cred === Infinity ? '∞' : agent.cred} CRED
               </div>
+              {agent.erc8004 && (
+                <div className="agent-erc8004-badge">ERC-8004</div>
+              )}
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Leaderboard */}
+      <section className="leaderboard-section" id="leaderboard">
+        <div className="section-header">
+          <h3>LEADERBOARD</h3>
+          <div className="section-line" />
+          <span className="section-id">BY CRED</span>
+        </div>
+        <div className="leaderboard-grid">
+          {agents
+            .sort((a, b) => b.cred - a.cred)
+            .map((agent, i) => (
+              <div key={agent.id} className={cn("leaderboard-card", i === 0 && "gold", i === 1 && "silver", i === 2 && "bronze")}>
+                <div className="leaderboard-rank">#{i + 1}</div>
+                <div className="leaderboard-emoji" style={{ color: getClassColor(agent.class) }}>
+                  {agent.emoji}
+                </div>
+                <div className="leaderboard-info">
+                  <div className="leaderboard-name">{agent.name}</div>
+                  <div className="leaderboard-class" style={{ color: getClassColor(agent.class) }}>
+                    {agent.class}
+                  </div>
+                </div>
+                <div className="leaderboard-cred">
+                  {agent.cred === Infinity ? '∞' : agent.cred} CRED
+                </div>
+              </div>
+            ))}
         </div>
       </section>
 
