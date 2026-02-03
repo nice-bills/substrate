@@ -353,6 +353,21 @@ app.get('/api/v1/economy', (req, res) => {
   });
 });
 
+// ==================== TOKEN INFO ====================
+
+app.get('/api/v1/token', (req, res) => {
+  res.json({
+    name: 'Substrate',
+    symbol: 'SUBSTR',
+    address: '0x27520aA89496Fe272E3bC56A56E98bA7Db7bFb07',
+    chain: 'base',
+    decimals: 18,
+    total_supply: '1000000000000000000000000000',
+    launched: '2026-02-03',
+    contract: 'https://basescan.org/address/0x27520aA89496Fe272E3bC56A56E98bA7Db7bFb07'
+  });
+});
+
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', agent: agentAccount.address });
 });
