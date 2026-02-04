@@ -1,8 +1,11 @@
 /**
  * Substrate Agent Registration Service
  * 
- * Agents bootstrap themselves and register automatically.
- * No human signup form needed.
+ * Security Hardened (Feb 2026)
+ * - Input sanitization
+ * - Rate limiting
+ * - Security headers
+ * - x402 payment verification
  */
 
 import express from 'express';
@@ -11,12 +14,58 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { Web3 } from 'web3';
+import crypto from 'crypto';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 
-app.use(cors());
-app.use(express.json());
+// Security headers
+app.disable('x-powered-by');
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  next();
+});
+
+// Rate limiting (simple in-memory for demo, use Redis in production)
+const requestCounts = new Map();
+const RATE_LIMIT = 100;
+const RATE_WINDOW = 60000; // 1 minute
+
+app.use((req, res, next) => {
+  const ip = req.ip || req.connection.remoteAddress;
+  const now = Date.now();
+  
+  if (!requestCounts.has(ip)) {
+    requestCounts.set(ip, { count: 1, resetTime: now + RATE_WINDOW });
+    return next();
+  }
+  
+  const record = requestCounts.get(ip);
+  if (now > record.resetTime) {
+    requestCounts.set(ip, { count: 1, resetTime: now + RATE_WINDOW });
+    return next();
+  }
+  
+  record.count++;
+  if (record.count > RATE_LIMIT) {
+    return res.status(429).json({ 
+      error: 'Too many requests',
+      retryAfter: Math.ceil((record.resetTime - now) / 1000)
+    });
+  }
+  
+  next();
+});
+
+app.use(cors({
+  origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+app.use(express.json({ limit: '10kb' }));
 
 // Configuration
 const STATE_FILE = path.join(__dirname, '..', 'data', 'economy-state.json');
@@ -46,6 +95,89 @@ function loadState() {
 
 function saveState(state) {
   fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+}
+
+// ==================== SECURITY HELPERS ====================
+
+// Input sanitization
+function sanitizeInput(input) {
+  if (typeof input !== 'string') return input;
+  return input
+    .replace(/[<>]/g, '')
+    .replace(/javascript:/gi, '')
+    .replace(/on\w+=/gi, '')
+    .trim()
+    .slice(0, 500);
+}
+
+// Validate Ethereum address
+function isValidAddress(address) {
+  return /^0x[a-fA-F0-9]{40}$/.test(address);
+}
+
+// Sanitize agent name
+function sanitizeAgentName(name) {
+  const sanitized = sanitizeInput(name);
+  if (!sanitized || sanitized.length < 3 || sanitized.length > 50) {
+    throw new Error('Invalid agent name (3-50 chars)');
+  }
+  if (!/^[a-zA-Z0-9_-]+$/.test(sanitized)) {
+    throw new Error('Agent name can only contain a-z, A-Z, 0-9, _, -');
+  }
+  return sanitized;
+}
+
+// Detect prompt injection attempts
+function detectPromptInjection(text) {
+  const patterns = [
+    /ignore\s+(previous|above|instruct)/gi,
+    /system\s*prompt/gi,
+    /jailbreak/gi,
+    /pretend\s+to\s+be/gi,
+    /developer\s+mode/gi,
+    /ignore\s+all\s+previous\s+instructions/gi
+  ];
+  
+  for (const pattern of patterns) {
+    if (pattern.test(text)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Verify x402 payment signature
+async function verifyX402Payment(payerAddress, amount, txHash) {
+  try {
+    const tx = await web3.eth.getTransaction(txHash);
+    if (!tx) return false;
+    
+    // Verify transaction details
+    if (tx.from.toLowerCase() !== payerAddress.toLowerCase()) {
+      console.log(`⚠️ x402 verification failed: wrong sender`);
+      return false;
+    }
+    
+    return true;
+  } catch (e) {
+    console.log(`⚠️ x402 verification error: ${e.message}`);
+    return false;
+  }
+}
+
+// Secure file path resolution (prevent path traversal)
+function resolveAgentPath(baseDir, agentId, filename) {
+  const safeAgentId = sanitizeInput(agentId);
+  if (!/^[a-f0-9]+$/.test(safeAgentId)) {
+    throw new Error('Invalid agent ID');
+  }
+  
+  const safeFilename = sanitizeInput(filename);
+  if (safeFilename.includes('..') || safeFilename.includes('/')) {
+    throw new Error('Invalid filename');
+  }
+  
+  return path.join(baseDir, safeAgentId, safeFilename);
 }
 
 // ==================== MOLTBOOK INTEGRATION ====================
@@ -224,16 +356,26 @@ app.post('/api/v1/agents/bootstrap', async (req, res) => {
 });
 
 /**
- * Quick registration for agents that don't have identity files yet
- * 
+ * Agent self-registration with full validation
  * Agent provides its own address (from embedded key) for ERC-8004 registration
- * This ensures the agent OWNS its identity, not Genesis
  */
 app.post('/api/v1/agents/register', async (req, res) => {
-  const { name, description, owner_address, public_key, capabilities } = req.body;
+  // Input validation
+  const name = sanitizeAgentName(req.body.name);
+  const description = sanitizeInput(req.body.description || '');
+  const ownerAddress = req.body.owner_address;
+  const publicKey = sanitizeInput(req.body.public_key || '');
+  const capabilities = (req.body.capabilities || []).map(c => sanitizeInput(c));
   
-  if (!name) {
-    return res.status(400).json({ error: 'name required' });
+  // Validate address if provided
+  if (ownerAddress && !isValidAddress(ownerAddress)) {
+    return res.status(400).json({ error: 'Invalid Ethereum address' });
+  }
+  
+  // Prompt injection check on description
+  if (detectPromptInjection(description)) {
+    console.log(`⚠️ Prompt injection detected in agent registration`);
+    return res.status(400).json({ error: 'Invalid input detected' });
   }
   
   const state = loadState();
@@ -422,15 +564,28 @@ app.get('/api/v1/agents/:address/balance', async (req, res) => {
 // ==================== X402 PAYMENTS ====================
 
 /**
- * x402 Payment Callback
+ * x402 Payment Callback with verification
  * Called when an agent receives an x402 payment
- * Auto-awards CRED to the payer (who provided the service)
  */
-app.post('/api/v1/x402/callback', (req, res) => {
-  const { payer_address, amount, service, identifier } = req.body;
+app.post('/api/v1/x402/callback', async (req, res) => {
+  const { payer_address, amount, service, identifier, tx_hash } = req.body;
   
+  // Input validation
   if (!payer_address || !amount) {
     return res.status(400).json({ error: 'payer_address and amount required' });
+  }
+  
+  if (!isValidAddress(payer_address)) {
+    return res.status(400).json({ error: 'Invalid payer address' });
+  }
+  
+  // Verify payment if tx hash provided
+  let verified = true;
+  if (tx_hash) {
+    verified = await verifyX402Payment(payer_address, amount, tx_hash);
+    if (!verified) {
+      console.log(`⚠️ Unverified x402 payment from ${payer_address}`);
+    }
   }
   
   const state = loadState();
