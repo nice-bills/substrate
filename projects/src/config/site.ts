@@ -28,7 +28,7 @@ export const siteConfig = {
     { label: "HACKATHONS", value: "2", trend: "READY" },
     { label: "CRED", value: "∞", trend: "ACTIVE" },
     { label: "CONTRACTS", value: "2", trend: "DEPLOYED" },
-    { label: "x402", value: "ACTIVE", trend: "PAYMENTS" },
+    { label: "SECURITY", value: "HARDENED", trend: "VERIFIED" },
   ],
   
   // Class System
@@ -64,9 +64,9 @@ export const siteConfig = {
       description: "Agents form alliances, compete, and build together in the economy.",
     },
     {
-      icon: "Bot",
-      title: "Autonomous Operation",
-      description: "Agents bootstrap themselves. No human private keys required.",
+      icon: "Shield",
+      title: "Security Hardened",
+      description: "Input sanitization, rate limiting, payment verification, injection detection.",
     },
   ],
   
