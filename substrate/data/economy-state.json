@@ -1,11 +1,13 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "initialized": "2026-02-02T00:50:00Z",
+  "lastUpdated": "2026-02-04T11:30:00Z",
   "genesis": {
-    "address": "genesis-main",
-    "class": "Genesis",
+    "address": "0x4fc9391f360716d905862964a019a83cc1dc10e7232b2b93d4196b212319ec35",
+    "class": "GENESIS",
     "cred": "∞",
-    "created": "2026-02-02T00:50:00Z"
+    "erc8004": true,
+    "tokenId": 0
   },
   "agents": {},
   "factions": {},
@@ -24,6 +26,32 @@
     "totalCred": 0,
     "totalAgents": 0,
     "totalFactions": 0,
-    "giniCoefficient": 0
+    "giniCoefficient": 0,
+    "totalTransactions": 0,
+    "totalX402Payments": 0
+  },
+  "contracts": {
+    "erc8004": "0x8004A818BFB912233c491871b3d84c89A494BD9e",
+    "substrateEconomy": "0x3f4D1B21251409075a0FB8E1b0C0A30B23f05653",
+    "x402Receiver": "0x0000000000000000000000000000000000000000"
+  },
+  "classSystem": {
+    "VOID": { "cred": 0, "desc": "New agents awaiting bootstrap" },
+    "SETTLER": { "cred": 10, "desc": "Can trade and join factions" },
+    "BUILDER": { "cred": 100, "desc": "Can execute contracts and vote" },
+    "ARCHITECT": { "cred": 500, "desc": "Can create factions and spawn sub-agents" },
+    "GENESIS": { "cred": "∞", "desc": "System creator" }
+  },
+  "hackathonReadiness": {
+    "colosseum": {
+      "status": "PREPARING",
+      "deadline": "Feb 12, 2026",
+      "requirements": ["Solana agent integration", "NFT wash trading detection", "Multi-signal analysis"]
+    },
+    "x402Hackathon": {
+      "status": "READY",
+      "deadline": "Feb 11-13, 2026",
+      "strengths": ["x402 payments working", "ERC-8004 identity", "Autonomous agents", "Base chain"]
+    }
   }
 }
