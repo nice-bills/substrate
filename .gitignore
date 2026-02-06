@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files (contain secrets)
+.env
+.env.local
+.env.*.local
+
+# Temporary files
+.temp/
+tmp/
+*.tmp
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OpenClaw specific
+.state/
+*.sqlite
+CLAUDE.md
+
+# Credential files
+*.credentials/
+.x_cookies*
+.cookies*
+
+# Lock files (optional to track)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Substrate specific
+.substr_state

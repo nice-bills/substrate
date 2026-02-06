@@ -1,13 +1,21 @@
 {
-  "version": "1.1.0",
+  "version": "1.2.0",
   "initialized": "2026-02-02T00:50:00Z",
-  "lastUpdated": "2026-02-04T11:30:00Z",
+  "lastUpdated": "2026-02-06T20:00:00Z",
   "genesis": {
     "address": "0x4fc9391f360716d905862964a019a83cc1dc10e7232b2b93d4196b212319ec35",
     "class": "GENESIS",
     "cred": "∞",
     "erc8004": true,
     "tokenId": 0
+  },
+  "token": {
+    "contract": "0x27520aA89496Fe272E3bC56A56E98bA7Db7bFb07",
+    "network": "Base",
+    "symbol": "SUBSTR",
+    "decimals": 18,
+    "firstFeesClaimed": "2026-02-06T00:00:00Z",
+    "totalFeesUSD": 36.19
   },
   "agents": {},
   "factions": {},
